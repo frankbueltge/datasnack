@@ -5,5 +5,9 @@
 Explore our data-driven recipes on [data-snack.com](https://data-snack.com) and dig into the pantry of ingredients below.
 
 ## 📦 Repo structure
-- `DATA_PANTRY.md`: Curated list of datasets and APIs
 - `snacks/`: Folder for each published data snack (code, data, readme)
+👉 Explore curated GitHub dataset collections: [DATA_PANTRY.md](./DATA_PANTRY.md)
+👉 Explore weird & wonderful datasets: [weird-data-sets.md](./weird-data-sets.md)
+
+
+
