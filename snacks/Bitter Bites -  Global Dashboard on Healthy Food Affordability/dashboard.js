@@ -1,23 +1,8 @@
-// Get color scale based on indicator
-function getColorScale(indicator) {
-    if (indicator === 'cohd_ppp') {
-        return d3.scaleThreshold()
-            .domain([3, 3.5, 4.5, 5.5])
-            .range(['#059669', '#10b981', '#f59e0b', '#ea580c', '#dc2626']);
-    } else if (indicator === 'pua') {
-        return d3.scaleThreshold()
-            .domain([10, 30, 50, 70])
-            .range(['#10b981', '#eab308', '#f59e0b', '#ea580c', '#dc2626']);
-    } else {
-        return d3.scaleThreshold()
-            .domain([10, 50, 100, 200])
-            .range(['#059669', '#10b981', '#f59e0b', '#ea580c', '#dc2626']);
-    }
-}// Global variables
+// Global variables
 let allData = [];
 let charts = {};
 let currentDataSource = 'countries';
-let currentDataFile = 'https://data-snack.com/apps/prepared_data-final.csv'; // Updated to use the new CSV file
+let currentDataFile = 'prepared_data-final.csv';
 let latestYear = '2024';
 let selectedYear = '2024';
 let selectedIncomeLevel = 'all';
@@ -63,6 +48,23 @@ const continentMapping = {
     'South America': ['South America'],
     'Oceania': ['Oceania']
 };
+
+// Get color scale based on indicator
+function getColorScale(indicator) {
+    if (indicator === 'cohd_ppp') {
+        return d3.scaleThreshold()
+            .domain([3, 3.5, 4.5, 5.5])
+            .range(['#059669', '#10b981', '#f59e0b', '#ea580c', '#dc2626']);
+    } else if (indicator === 'pua') {
+        return d3.scaleThreshold()
+            .domain([10, 30, 50, 70])
+            .range(['#10b981', '#eab308', '#f59e0b', '#ea580c', '#dc2626']);
+    } else {
+        return d3.scaleThreshold()
+            .domain([10, 50, 100, 200])
+            .range(['#059669', '#10b981', '#f59e0b', '#ea580c', '#dc2626']);
+    }
+}
 
 // Theme toggle function
 function toggleTheme() {
@@ -365,25 +367,18 @@ async function switchDataSource(source) {
     
     currentDataSource = source;
     // We now use the same file for both sources but filter differently
-    currentDataFile = 'https://data-snack.com/apps/prepared_data-final.csv';
+    currentDataFile = 'prepared_data-final.csv';
     
     document.getElementById('regions-source-btn').className = source === 'regions' ? 'source-btn active' : 'source-btn inactive';
     document.getElementById('countries-source-btn').className = source === 'countries' ? 'source-btn active' : 'source-btn inactive';
     
-    // Disable/enable map button based on data source (map only works with countries)
+    // Hide/show Map button based on data source
     const mapBtn = document.getElementById('map-source-btn');
     if (source === 'regions') {
-        mapBtn.style.opacity = '0.5';
-        mapBtn.style.pointerEvents = 'none';
-        mapBtn.title = 'Map view only available for country data';
-        // If currently in map view, switch to overview
-        if (document.getElementById('map-view').classList.contains('hidden') === false) {
-            showView('overview');
-        }
+        mapBtn.style.display = 'block'; // Hide completely when in regional mode
     } else {
-        mapBtn.style.opacity = '1';
-        mapBtn.style.pointerEvents = 'auto';
-        mapBtn.title = '';
+        mapBtn.style.display = 'block'; // Show when in countries mode
+        mapBtn.className = 'source-btn inactive'; // But don't make it active
     }
     
     document.getElementById('loading').classList.remove('hidden');
@@ -401,6 +396,8 @@ async function switchDataSource(source) {
         updateAnalysis();
         document.getElementById('loading').classList.add('hidden');
         document.getElementById('app').classList.remove('hidden');
+        // Always show overview when switching data source
+        showView('overview');
     } catch (error) {
         console.error('Error switching data source:', error);
         document.getElementById('loading').textContent = 'Error loading data. Please refresh the page.';
@@ -410,6 +407,7 @@ async function switchDataSource(source) {
 // Update interface text based on current data source
 function updateInterface() {
     const isRegional = currentDataSource === 'regions';
+    const isMap = !document.getElementById('map-view').classList.contains('hidden');
     const entityName = isRegional ? 'Region' : 'Country';
     const entityNamePlural = isRegional ? 'Regions' : 'Countries';
     
@@ -427,7 +425,7 @@ function updateInterface() {
     // Show/hide income filter for countries only
     const incomeFilter = document.getElementById('income-filter');
     if (incomeFilter) {
-        incomeFilter.style.display = isRegional ? 'none' : 'flex';
+        incomeFilter.style.display = isRegional || isMap ? 'none' : 'flex';
     }
     
     // Show/hide continent selector for regions only
@@ -436,7 +434,8 @@ function updateInterface() {
         continentGroup.style.display = isRegional ? 'flex' : 'none';
     }
     
-    if (isRegional) {
+    // Update stats boxes based on view
+    if (isRegional || isMap) {
         updateText('stat-1-title', 'Global Cost (PPP)');
         updateText('stat-2-title', 'Global Unaffordability');
         updateText('stat-3-title', 'People Affected');
@@ -537,9 +536,20 @@ function showView(view) {
     document.getElementById('map-view').classList.toggle('hidden', view !== 'map');
     
     // Handle top level buttons (source selector)
-    document.getElementById('map-source-btn').className = view === 'map' ? 'source-btn active' : 'source-btn inactive';
-    document.getElementById('regions-source-btn').className = (view !== 'map' && currentDataSource === 'regions') ? 'source-btn active' : 'source-btn inactive';
-    document.getElementById('countries-source-btn').className = (view !== 'map' && currentDataSource === 'countries') ? 'source-btn active' : 'source-btn inactive';
+    if (view === 'map') {
+        document.getElementById('map-source-btn').className = 'source-btn active';
+        document.getElementById('regions-source-btn').className = 'source-btn inactive';
+        document.getElementById('countries-source-btn').className = 'source-btn inactive';
+        // Ensure we're in countries mode for map
+        if (currentDataSource !== 'countries') {
+            currentDataSource = 'countries';
+            updateInterface();
+        }
+    } else {
+        document.getElementById('map-source-btn').className = 'source-btn inactive';
+        document.getElementById('regions-source-btn').className = currentDataSource === 'regions' ? 'source-btn active' : 'source-btn inactive';
+        document.getElementById('countries-source-btn').className = currentDataSource === 'countries' ? 'source-btn active' : 'source-btn inactive';
+    }
     
     // Handle navigation buttons
     document.getElementById('overview-btn').className = view === 'overview' ? 'btn btn-primary' : 'btn btn-secondary';
@@ -579,7 +589,7 @@ function handleMapResize() {
 // Update overview section
 function updateOverview() {
     chartsLoaded = 0;
-    if (currentDataSource === 'regions') {
+    if (currentDataSource === 'regions' || document.getElementById('map-view').classList.contains('hidden') === false) {
         updateRegionalOverview();
     } else {
         updateCountryOverview();
@@ -1164,7 +1174,7 @@ async function initializeD3Map() {
     // Create group for map elements
     const g = svg.append('g');
     
-    // Create zoom behavior
+    // Create zoom behavior with improved settings
     const zoom = d3.zoom()
         .scaleExtent([1, 8])
         .on('zoom', (event) => {
@@ -1188,7 +1198,7 @@ async function initializeD3Map() {
         const countries = topojson.feature(world, world.objects.countries);
         
         // Store for later use
-        mapData = { g, path, countries, projection };
+        mapData = { g, path, countries, projection, svg, zoom };
         worldMap = true;
         
         // Draw initial map
@@ -1211,11 +1221,12 @@ async function initializeD3Map() {
 function updateD3Map(indicator, year) {
     if (!mapData) return;
     
-    const { g, path, countries } = mapData;
+    const { g, path, countries, svg, zoom } = mapData;
     
     // Create color scale
     const colorScale = getColorScale(indicator);
     
+    // Create data lookup - only use country data for map
     // Create data lookup - only use country data for map
     const dataLookup = {};
     allData.filter(d => d.year === year && !regionalAreas.includes(d.area))
@@ -1249,7 +1260,7 @@ function updateD3Map(indicator, year) {
             // Highlight country
             d3.select(this).attr('stroke', '#000').attr('stroke-width', 2);
             
-            // Show tooltip
+            // Show tooltip with improved positioning
             let content = `<strong>${countryName}</strong><br>`;
             if (value !== undefined) {
                 if (indicator === 'cohd_ppp') {
@@ -1263,10 +1274,23 @@ function updateD3Map(indicator, year) {
                 content += 'No data available';
             }
             
+            // Get map container position for better tooltip positioning
+            const mapContainer = document.getElementById('world-map');
+            const containerRect = mapContainer.getBoundingClientRect();
+            
             tooltip.html(content)
                 .style('display', 'block')
-                .style('left', (event.pageX + 10) + 'px')
-                .style('top', (event.pageY - 28) + 'px');
+                .style('left', (event.pageX - containerRect.left + 10) + 'px')
+                .style('top', (event.pageY - containerRect.top - 28) + 'px');
+        })
+        .on('mousemove', function(event, d) {
+            // Update tooltip position on mouse move
+            const mapContainer = document.getElementById('world-map');
+            const containerRect = mapContainer.getBoundingClientRect();
+            
+            tooltip
+                .style('left', (event.pageX - containerRect.left + 10) + 'px')
+                .style('top', (event.pageY - containerRect.top - 28) + 'px');
         })
         .on('mouseout', function() {
             // Remove highlight
@@ -1283,23 +1307,6 @@ function updateD3Map(indicator, year) {
     
     // Add zoom controls
     addZoomControls();
-}
-
-// Get color scale based on indicator
-function getColorScale(indicator) {
-    if (indicator === 'cohd_ppp') {
-        return d3.scaleThreshold()
-            .domain([3, 3.5, 4.5, 5.5])
-            .range(['#059669', '#10b981', '#f59e0b', '#ea580c', '#dc2626']);
-    } else if (indicator === 'pua') {
-        return d3.scaleThreshold()
-            .domain([10, 30, 50, 70])
-            .range(['#059669', '#10b981', '#f59e0b', '#ea580c', '#dc2626']);
-    } else {
-        return d3.scaleThreshold()
-            .domain([10, 50, 100, 200])
-            .range(['#059669', '#10b981', '#f59e0b', '#ea580c', '#dc2626']);
-    }
 }
 
 // Normalize country names for matching
@@ -1324,7 +1331,9 @@ function normalizeCountryName(name) {
 
 // Add zoom controls to map
 function addZoomControls() {
-    const svg = d3.select('#map-svg');
+    if (!mapData) return;
+    
+    const { svg, g, zoom } = mapData;
     const width = svg.node().getBoundingClientRect().width;
     
     // Remove existing controls
@@ -1335,72 +1344,81 @@ function addZoomControls() {
         .attr('transform', `translate(${width - 60}, 20)`);
     
     // Zoom in button
-    controls.append('rect')
+    const zoomInGroup = controls.append('g')
+        .style('cursor', 'pointer')
+        .on('click', () => {
+            svg.transition().duration(300).call(
+                zoom.scaleBy, 1.5
+            );
+        });
+    
+    zoomInGroup.append('rect')
         .attr('width', 40)
         .attr('height', 40)
         .attr('fill', 'white')
         .attr('stroke', '#ddd')
-        .attr('rx', 5)
-        .style('cursor', 'pointer')
-        .on('click', () => {
-            svg.transition().call(
-                d3.zoom().scaleBy, 1.3
-            );
-        });
+        .attr('rx', 5);
     
-    controls.append('text')
+    zoomInGroup.append('text')
         .attr('x', 20)
         .attr('y', 25)
         .attr('text-anchor', 'middle')
         .style('font-size', '20px')
         .style('user-select', 'none')
+        .style('pointer-events', 'none')
         .text('+');
     
     // Zoom out button
-    controls.append('rect')
+    const zoomOutGroup = controls.append('g')
+        .style('cursor', 'pointer')
+        .on('click', () => {
+            svg.transition().duration(300).call(
+                zoom.scaleBy, 0.67
+            );
+        });
+    
+    zoomOutGroup.append('rect')
         .attr('y', 45)
         .attr('width', 40)
         .attr('height', 40)
         .attr('fill', 'white')
         .attr('stroke', '#ddd')
-        .attr('rx', 5)
-        .style('cursor', 'pointer')
-        .on('click', () => {
-            svg.transition().call(
-                d3.zoom().scaleBy, 0.7
-            );
-        });
+        .attr('rx', 5);
     
-    controls.append('text')
+    zoomOutGroup.append('text')
         .attr('x', 20)
         .attr('y', 70)
         .attr('text-anchor', 'middle')
         .style('font-size', '20px')
         .style('user-select', 'none')
+        .style('pointer-events', 'none')
         .text('−');
     
     // Reset button
-    controls.append('rect')
+    const resetGroup = controls.append('g')
+        .style('cursor', 'pointer')
+        .on('click', () => {
+            svg.transition().duration(500).call(
+                zoom.transform,
+                d3.zoomIdentity
+            );
+        });
+    
+    resetGroup.append('rect')
         .attr('y', 90)
         .attr('width', 40)
         .attr('height', 40)
         .attr('fill', 'white')
         .attr('stroke', '#ddd')
-        .attr('rx', 5)
-        .style('cursor', 'pointer')
-        .on('click', () => {
-            svg.transition().call(
-                d3.zoom().transform,
-                d3.zoomIdentity
-            );
-        });
+        .attr('rx', 5);
     
-    controls.append('text')
+    resetGroup.append('text')
         .attr('x', 20)
         .attr('y', 115)
         .attr('text-anchor', 'middle')
         .style('font-size', '14px')
         .style('user-select', 'none')
+        .style('pointer-events', 'none')
         .text('⟲');
 }
 
@@ -1517,3 +1535,4 @@ function toggleChartFullscreen(chartId) {
 
 // Initialize the application when the page loads
 init();
+        
